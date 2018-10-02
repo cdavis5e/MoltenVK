@@ -880,6 +880,7 @@ MTLSamplerDescriptor* MVKSampler::getMTLSamplerDescriptor(const VkSamplerCreateI
     mtlSampDesc.mipFilter = (pCreateInfo->unnormalizedCoordinates
                              ? MTLSamplerMipFilterNotMipmapped
                              : mvkMTLSamplerMipFilterFromVkSamplerMipmapMode(pCreateInfo->mipmapMode));
+	mtlSampDesc.lodBiasMVK = pCreateInfo->mipLodBias;
 	mtlSampDesc.lodMinClamp = pCreateInfo->minLod;
 	mtlSampDesc.lodMaxClamp = pCreateInfo->maxLod;
 	mtlSampDesc.maxAnisotropy = (pCreateInfo->anisotropyEnable
@@ -889,6 +890,20 @@ MTLSamplerDescriptor* MVKSampler::getMTLSamplerDescriptor(const VkSamplerCreateI
 	mtlSampDesc.compareFunctionMVK = (pCreateInfo->compareEnable
 									  ? mvkMTLCompareFunctionFromVkCompareOp(pCreateInfo->compareOp)
 									  : MTLCompareFunctionNever);
+#if MVK_MACOS
+	mtlSampDesc.borderColorMVK = mvkMTLSamplerBorderColorFromVkBorderColor(pCreateInfo->borderColor);
+	if ([_device->getMTLDevice() supportsFeatureSet: MTLFeatureSet_macOS_GPUFamily1_v2]) {
+		if (pCreateInfo->addressModeU == VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER) {
+			mtlSampDesc.sAddressMode = MTLSamplerAddressModeClampToBorderColor;
+		}
+		if (pCreateInfo->addressModeV == VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER) {
+			mtlSampDesc.tAddressMode = MTLSamplerAddressModeClampToBorderColor;
+		}
+		if (pCreateInfo->addressModeW == VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER) {
+			mtlSampDesc.rAddressMode = MTLSamplerAddressModeClampToBorderColor;
+		}
+	}
+#endif
 	return [mtlSampDesc autorelease];
 }
 

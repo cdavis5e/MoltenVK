@@ -19,6 +19,13 @@
 
 #include "MTLSamplerDescriptor+MoltenVK.h"
 
+/** Additional methods not necessarily declared in <Metal/MTLSampler.h>. */
+@interface MTLSamplerDescriptor ()
+
+@property(nonatomic, readwrite) float lodBias;
+
+@end
+
 @implementation MTLSamplerDescriptor (MoltenVK)
 
 -(MTLCompareFunction) compareFunctionMVK {
@@ -28,6 +35,28 @@
 
 -(void) setCompareFunctionMVK: (MTLCompareFunction) cmpFunc {
 	if ( [self respondsToSelector: @selector(setCompareFunction:)] ) { self.compareFunction = cmpFunc; }
+}
+
+-(NSUInteger) borderColorMVK {
+#if MVK_MACOS
+	if ( [self respondsToSelector: @selector(borderColor)] ) { return self.borderColor; }
+#endif
+	return /*MTLSamplerBorderColorTransparentBlack*/ 0;
+}
+
+-(void) setBorderColorMVK: (NSUInteger) color {
+#if MVK_MACOS
+	if ( [self respondsToSelector: @selector(setBorderColor:)] ) { self.borderColor = (MTLSamplerBorderColor) color; }
+#endif
+}
+
+-(float) lodBiasMVK {
+	if ( [self respondsToSelector: @selector(lodBias)] ) { return self.lodBias; }
+	return 0.0f;
+}
+
+-(void) setLodBiasMVK: (float) bias {
+	if ( [self respondsToSelector: @selector(setLodBias:)] ) { self.lodBias = bias; }
 }
 
 @end
