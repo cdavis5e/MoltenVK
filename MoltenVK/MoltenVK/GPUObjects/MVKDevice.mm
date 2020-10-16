@@ -2772,7 +2772,7 @@ void MVKPhysicalDevice::initLimits() {
 			break;
 	}
 
-    _properties.limits.pointSizeGranularity = 1;
+    _properties.limits.pointSizeGranularity = 0.125;
     _properties.limits.lineWidthRange[0] = 1;
     _properties.limits.lineWidthRange[1] = _features.wideLines ? 8 : 1;
     _properties.limits.lineWidthGranularity = _features.wideLines ? 0.125f : 0;
