@@ -336,10 +336,7 @@ protected:
 	friend MVKImageView;
 
 	void propagateDebugName() override;
-	void validateConfig(const VkImageCreateInfo* pCreateInfo, bool isAttachment);
 	VkSampleCountFlagBits validateSamples(const VkImageCreateInfo* pCreateInfo, bool isAttachment);
-	uint32_t validateMipLevels(const VkImageCreateInfo* pCreateInfo, bool isAttachment);
-	bool validateLinear(const VkImageCreateInfo* pCreateInfo, bool isAttachment);
 	void initExternalMemory(VkExternalMemoryHandleTypeFlags handleTypes);
     void releaseIOSurface();
 	bool getIsValidViewFormat(VkFormat viewFormat);

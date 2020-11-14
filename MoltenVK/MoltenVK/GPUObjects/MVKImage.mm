@@ -912,6 +912,7 @@ MVKImage::MVKImage(MVKDevice* device, const VkImageCreateInfo* pCreateInfo) : MV
 	_extent.height = max(pCreateInfo->extent.height, minDim);
 	_extent.depth = max(pCreateInfo->extent.depth, minDim);
     _arrayLayers = max(pCreateInfo->arrayLayers, minDim);
+	_mipLevels = max(pCreateInfo->mipLevels, minDim);
 
 	// Perform validation and adjustments before configuring other settings
 	bool isAttachment = mvkIsAnyFlagEnabled(pCreateInfo->usage, (VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT |
@@ -922,12 +923,9 @@ MVKImage::MVKImage(MVKDevice* device, const VkImageCreateInfo* pCreateInfo) : MV
 	_samples = validateSamples(pCreateInfo, isAttachment);
 	_mtlTextureType = mvkMTLTextureTypeFromVkImageType(pCreateInfo->imageType, _arrayLayers, _samples > VK_SAMPLE_COUNT_1_BIT);
 
-	validateConfig(pCreateInfo, isAttachment);
-	_mipLevels = validateMipLevels(pCreateInfo, isAttachment);
-	_isLinear = validateLinear(pCreateInfo, isAttachment);
-
 	MVKPixelFormats* pixFmts = getPixelFormats();
     _vkFormat = pCreateInfo->format;
+    _isLinear = pCreateInfo->tiling == VK_IMAGE_TILING_LINEAR;
     _isAliasable = mvkIsAnyFlagEnabled(pCreateInfo->flags, VK_IMAGE_CREATE_ALIAS_BIT);
 	_hasMutableFormat = mvkIsAnyFlagEnabled(pCreateInfo->flags, VK_IMAGE_CREATE_MUTABLE_FORMAT_BIT);
 	_hasExtendedUsage = mvkIsAnyFlagEnabled(pCreateInfo->flags, VK_IMAGE_CREATE_EXTENDED_USAGE_BIT);
@@ -1035,123 +1033,12 @@ VkSampleCountFlagBits MVKImage::validateSamples(const VkImageCreateInfo* pCreate
 
 	if (validSamples == VK_SAMPLE_COUNT_1_BIT) { return validSamples; }
 
-	// Don't use getImageType() because it hasn't been set yet.
-	if ( !((pCreateInfo->imageType == VK_IMAGE_TYPE_2D) || ((pCreateInfo->imageType == VK_IMAGE_TYPE_1D) && getMVKConfig().texture1DAs2D)) ) {
-		setConfigurationResult(reportError(VK_ERROR_FEATURE_NOT_PRESENT, "vkCreateImage() : Under Metal, multisampling can only be used with a 2D image type. Setting sample count to 1."));
-		validSamples = VK_SAMPLE_COUNT_1_BIT;
-	}
-
-	if (getPixelFormats()->getFormatType(pCreateInfo->format) == kMVKFormatCompressed) {
-		setConfigurationResult(reportError(VK_ERROR_FEATURE_NOT_PRESENT, "vkCreateImage() : Under Metal, multisampling cannot be used with compressed images. Setting sample count to 1."));
-		validSamples = VK_SAMPLE_COUNT_1_BIT;
-	}
-	if (getPixelFormats()->getChromaSubsamplingPlaneCount(pCreateInfo->format) > 0) {
-		setConfigurationResult(reportError(VK_ERROR_FEATURE_NOT_PRESENT, "vkCreateImage() : Under Metal, multisampling cannot be used with chroma subsampled images. Setting sample count to 1."));
-		validSamples = VK_SAMPLE_COUNT_1_BIT;
-	}
-
 	if (pCreateInfo->arrayLayers > 1 && !_device->_pMetalFeatures->multisampleArrayTextures ) {
 		setConfigurationResult(reportError(VK_ERROR_FEATURE_NOT_PRESENT, "vkCreateImage() : This device does not support multisampled array textures. Setting sample count to 1."));
 		validSamples = VK_SAMPLE_COUNT_1_BIT;
 	}
 
 	return validSamples;
-}
-
-void MVKImage::validateConfig(const VkImageCreateInfo* pCreateInfo, bool isAttachment) {
-	MVKPixelFormats* pixFmts = getPixelFormats();
-
-	bool is2D = (getImageType() == VK_IMAGE_TYPE_2D);
-	bool isChromaSubsampled = pixFmts->getChromaSubsamplingPlaneCount(pCreateInfo->format) > 0;
-
-	if (isChromaSubsampled && !is2D) {
-		setConfigurationResult(reportError(VK_ERROR_FEATURE_NOT_PRESENT, "vkCreateImage() : Under Metal, chroma subsampled formats may only be used with 2D images."));
-	}
-	if (isChromaSubsampled && mvkIsAnyFlagEnabled(pCreateInfo->flags, VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT)) {
-		setConfigurationResult(reportError(VK_ERROR_FEATURE_NOT_PRESENT, "vkCreateImage() : Under Metal, chroma subsampled formats may not be used with cube images."));
-	}
-	if (isChromaSubsampled && (pCreateInfo->arrayLayers > 1)) {
-		setConfigurationResult(reportError(VK_ERROR_FEATURE_NOT_PRESENT, "vkCreateImage() : Chroma-subsampled formats may only have one array layer."));
-	}
-	if ((pixFmts->getFormatType(pCreateInfo->format) == kMVKFormatDepthStencil) && !is2D ) {
-		setConfigurationResult(reportError(VK_ERROR_FEATURE_NOT_PRESENT, "vkCreateImage() : Under Metal, depth/stencil formats may only be used with 2D images."));
-	}
-	if (isAttachment && (getImageType() == VK_IMAGE_TYPE_1D)) {
-		setConfigurationResult(reportError(VK_ERROR_FEATURE_NOT_PRESENT, "vkCreateImage() : Metal does not support rendering to native 1D attachments. Consider enabling MVK_CONFIG_TEXTURE_1D_AS_2D."));
-	}
-	if (mvkIsAnyFlagEnabled(pCreateInfo->flags, VK_IMAGE_CREATE_BLOCK_TEXEL_VIEW_COMPATIBLE_BIT)) {
-		setConfigurationResult(reportError(VK_ERROR_FEATURE_NOT_PRESENT, "vkCreateImage() : Metal does not allow uncompressed views of compressed images."));
-	}
-	if (mvkIsAnyFlagEnabled(pCreateInfo->flags, VK_IMAGE_CREATE_SPLIT_INSTANCE_BIND_REGIONS_BIT)) {
-		setConfigurationResult(reportError(VK_ERROR_FEATURE_NOT_PRESENT, "vkCreateImage() : Metal does not support split-instance memory binding."));
-	}
-}
-
-uint32_t MVKImage::validateMipLevels(const VkImageCreateInfo* pCreateInfo, bool isAttachment) {
-	uint32_t minDim = 1;
-	uint32_t validMipLevels = max(pCreateInfo->mipLevels, minDim);
-
-	if (validMipLevels == 1) { return validMipLevels; }
-
-	if (getPixelFormats()->getChromaSubsamplingPlaneCount(pCreateInfo->format) == 1) {
-		setConfigurationResult(reportError(VK_ERROR_FEATURE_NOT_PRESENT, "vkCreateImage() : Under Metal, GBGR and BGRG images cannot use mipmaps. Setting mip levels to 1."));
-		validMipLevels = 1;
-	}
-	if (getImageType() == VK_IMAGE_TYPE_1D) {
-		setConfigurationResult(reportError(VK_ERROR_FEATURE_NOT_PRESENT, "vkCreateImage() : Under Metal, native 1D images cannot use mipmaps. Setting mip levels to 1. Consider enabling MVK_CONFIG_TEXTURE_1D_AS_2D."));
-		validMipLevels = 1;
-	}
-
-	return validMipLevels;
-}
-
-bool MVKImage::validateLinear(const VkImageCreateInfo* pCreateInfo, bool isAttachment) {
-
-	if (pCreateInfo->tiling != VK_IMAGE_TILING_LINEAR ) { return false; }
-
-	bool isLin = true;
-
-	if (getImageType() != VK_IMAGE_TYPE_2D) {
-		setConfigurationResult(reportError(VK_ERROR_FEATURE_NOT_PRESENT, "vkCreateImage() : If tiling is VK_IMAGE_TILING_LINEAR, imageType must be VK_IMAGE_TYPE_2D."));
-		isLin = false;
-	}
-
-	if (getPixelFormats()->getFormatType(pCreateInfo->format) == kMVKFormatDepthStencil) {
-		setConfigurationResult(reportError(VK_ERROR_FEATURE_NOT_PRESENT, "vkCreateImage() : If tiling is VK_IMAGE_TILING_LINEAR, format must not be a depth/stencil format."));
-		isLin = false;
-	}
-	if (getPixelFormats()->getFormatType(pCreateInfo->format) == kMVKFormatCompressed) {
-		setConfigurationResult(reportError(VK_ERROR_FEATURE_NOT_PRESENT, "vkCreateImage() : If tiling is VK_IMAGE_TILING_LINEAR, format must not be a compressed format."));
-		isLin = false;
-	}
-	if (getPixelFormats()->getChromaSubsamplingPlaneCount(pCreateInfo->format) == 1) {
-		setConfigurationResult(reportError(VK_ERROR_FEATURE_NOT_PRESENT, "vkCreateImage() : If tiling is VK_IMAGE_TILING_LINEAR, format must not be a single-plane chroma subsampled format."));
-		isLin = false;
-	}
-
-	if (pCreateInfo->mipLevels > 1) {
-		setConfigurationResult(reportError(VK_ERROR_FEATURE_NOT_PRESENT, "vkCreateImage() : If tiling is VK_IMAGE_TILING_LINEAR, mipLevels must be 1."));
-		isLin = false;
-	}
-
-	if (pCreateInfo->arrayLayers > 1) {
-		setConfigurationResult(reportError(VK_ERROR_FEATURE_NOT_PRESENT, "vkCreateImage() : If tiling is VK_IMAGE_TILING_LINEAR, arrayLayers must be 1."));
-		isLin = false;
-	}
-
-	if (pCreateInfo->samples > VK_SAMPLE_COUNT_1_BIT) {
-		setConfigurationResult(reportError(VK_ERROR_FEATURE_NOT_PRESENT, "vkCreateImage() : If tiling is VK_IMAGE_TILING_LINEAR, samples must be VK_SAMPLE_COUNT_1_BIT."));
-		isLin = false;
-	}
-
-#if !MVK_APPLE_SILICON
-	if (isAttachment) {
-		setConfigurationResult(reportError(VK_ERROR_FEATURE_NOT_PRESENT, "vkCreateImage() : This device does not support rendering to linear (VK_IMAGE_TILING_LINEAR) images."));
-		isLin = false;
-	}
-#endif
-
-	return isLin;
 }
 
 void MVKImage::initExternalMemory(VkExternalMemoryHandleTypeFlags handleTypes) {
