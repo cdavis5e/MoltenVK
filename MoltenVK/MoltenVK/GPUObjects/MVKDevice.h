@@ -185,6 +185,12 @@ public:
 #pragma mark Surfaces
 
 	/**
+	 * Queries whether this device supports presentation at all using a queue of the
+	 * specified queue family.
+	 */
+	VkBool32 getPresentationSupport(uint32_t queueFamilyIndex);
+
+	/**
 	 * Queries whether this device supports presentation to the specified surface,
 	 * using a queue of the specified queue family.
 	 */

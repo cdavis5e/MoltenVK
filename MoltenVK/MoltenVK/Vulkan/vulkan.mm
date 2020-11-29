@@ -3926,6 +3926,17 @@ MVK_PUBLIC_VULKAN_SYMBOL VkResult vkCreateMetalSurfaceEXT(
 	return rslt;
 }
 
+MVK_PUBLIC_SYMBOL VkBool32 vkGetPhysicalDeviceMetalPresentationSupportEXT(
+	VkPhysicalDevice                            physicalDevice,
+	uint32_t                                    queueFamilyIndex) {
+
+	MVKTraceVulkanCallStart();
+	MVKPhysicalDevice* mvkPD = MVKPhysicalDevice::getMVKPhysicalDevice(physicalDevice);
+	VkBool32 support = mvkPD->getPresentationSupport(queueFamilyIndex);
+	MVKTraceVulkanCallEnd();
+	return support;
+}
+
 
 #pragma mark -
 #pragma mark VK_EXT_metal_objects extension

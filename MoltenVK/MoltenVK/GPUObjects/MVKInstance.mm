@@ -26,6 +26,11 @@
 
 using namespace std;
 
+// Until this is added to Vulkan proper...
+extern VkBool32 vkGetPhysicalDeviceMetalPresentationSupportEXT(
+	VkPhysicalDevice                            physicalDevice,
+	uint32_t                                    queueFamilyIndex);
+
 
 #pragma mark -
 #pragma mark MVKInstance
@@ -473,6 +478,7 @@ void MVKInstance::initProcAddrs() {
 	ADD_INST_EXT_ENTRY_POINT(vkGetPhysicalDeviceSurfaceFormats2KHR, KHR_GET_SURFACE_CAPABILITIES_2);
 	ADD_INST_EXT_ENTRY_POINT(vkCreateHeadlessSurfaceEXT, EXT_HEADLESS_SURFACE);
 	ADD_INST_EXT_ENTRY_POINT(vkCreateMetalSurfaceEXT, EXT_METAL_SURFACE);
+	ADD_INST_EXT_ENTRY_POINT(vkGetPhysicalDeviceMetalPresentationSupportEXT, EXT_METAL_SURFACE);
 	ADD_INST_EXT_ENTRY_POINT(vkCreateDebugReportCallbackEXT, EXT_DEBUG_REPORT);
 	ADD_INST_EXT_ENTRY_POINT(vkDestroyDebugReportCallbackEXT, EXT_DEBUG_REPORT);
 	ADD_INST_EXT_ENTRY_POINT(vkDebugReportMessageEXT, EXT_DEBUG_REPORT);

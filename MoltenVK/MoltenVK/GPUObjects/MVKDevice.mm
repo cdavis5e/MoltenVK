@@ -1258,6 +1258,14 @@ VkResult MVKPhysicalDevice::getCalibrateableTimeDomains(uint32_t* pTimeDomainCou
 
 #pragma mark Surfaces
 
+VkBool32 MVKPhysicalDevice::getPresentationSupport(uint32_t queueFamilyIndex) {
+#if MVK_MACOS
+	return getMTLDevice().isHeadless ? VK_FALSE : VK_TRUE;
+#else
+	return VK_TRUE;
+#endif
+}
+
 VkResult MVKPhysicalDevice::getSurfaceSupport(uint32_t queueFamilyIndex,
 											  MVKSurface* surface,
 											  VkBool32* pSupported) {
