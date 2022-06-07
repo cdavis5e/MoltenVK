@@ -1279,7 +1279,7 @@ void MVKPresentableSwapchainImage::addPresentedHandler(id<CAMetalDrawable> mtlDr
 													   MVKSwapchainSignaler signaler) {
 	beginPresentation(presentInfo);
 
-#if !MVK_OS_SIMULATOR
+#if (MVK_XCODE_12 || MVK_IOS_OR_TVOS) && !MVK_OS_SIMULATOR
 	if ([mtlDrawable respondsToSelector: @selector(addPresentedHandler:)]) {
 		[mtlDrawable addPresentedHandler: ^(id<MTLDrawable> mtlDrwbl) {
 			endPresentation(presentInfo, signaler, mtlDrwbl.presentedTime * 1.0e9);
