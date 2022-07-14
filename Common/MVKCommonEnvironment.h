@@ -25,6 +25,7 @@ extern "C" {
 
 
 #include <TargetConditionals.h>
+#include <Availability.h>
 
 
 /**
